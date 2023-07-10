@@ -38,7 +38,32 @@ def predict(image_path, model, device, detection_threshold):
         outputs = model(image)
     boxes = outputs[0]['boxes'].data.cpu().numpy()
     scores = outputs[0]['scores'].data.cpu().numpy()
-    boxes = boxes[scores >= detection_threshold].astype(np.int32)
+
+    keep_boxes = scores >= detection_threshold
+    max_score_box = scores.argmax()
+
+    if max_score_box not in np.where(keep_boxes)[0]:
+        keep_boxes = np.append(keep_boxes, max_score_box)
+
+    boxes = boxes[keep_boxes].astype(np.int32)
+    return boxesdef predict(image_path, model, device, detection_threshold):
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = normalize_image(image)
+    image = torch.from_numpy(image).permute(2, 0, 1).float().to(device).unsqueeze(0)
+    model.eval()
+    with torch.no_grad():
+        outputs = model(image)
+    boxes = outputs[0]['boxes'].data.cpu().numpy()
+    scores = outputs[0]['scores'].data.cpu().numpy()
+
+    keep_boxes = scores >= detection_threshold
+    max_score_box = scores.argmax()
+
+    if max_score_box not in np.where(keep_boxes)[0]:
+        keep_boxes = np.append(keep_boxes, max_score_box)
+
+    boxes = boxes[keep_boxes].astype(np.int32)
     return boxes
 
 
@@ -57,7 +82,7 @@ def main():
     model = get_model(num_classes=2)
     model.load_state_dict(torch.load("ssdlite_weights.pth"))
     model.to(device)
-    boxes = predict(args.source, model, device, detection_threshold=0.3)
+    boxes = predict(args.source, model, device, detection_threshold=0.5)
     draw_boxes(args.source, boxes, args.source.split('.')[0]+'_out.png')
 
 
